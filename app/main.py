@@ -1,8 +1,9 @@
+import secrets
 from fastapi import FastAPI, Depends, HTTPException, Request, Header
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 from app.database import SessionLocal, redis_client
-from app.models import URL
+from app.models import URL, User 
 import random
 import string
 import redis
@@ -58,9 +59,33 @@ def health_check():
     return {"status": "ok"}
 
 
+@app.post("/register")
+def register_user(email: str, db: Session = Depends(get_db)):
+    existing_user = db.query(User).filter(User.email == email).first()
+    if existing_user:
+        raise HTTPException(status_code=400, detail="Email already registered")
+
+    api_key = secrets.token_urlsafe(24)
+
+    new_user = User(email=email, api_key=api_key)
+    db.add(new_user)
+    db.commit()
+    db.refresh(new_user)
+
+    return {
+        "email": new_user.email,
+        "api_key": new_user.api_key,
+        "created_at": new_user.created_at
+    }
+
+
 
 @app.post("/shorten")
-def shorten_url(long_url: str, request: Request, idempotency_key: str = Header(default=None), db: Session = Depends(get_db)):
+def shorten_url(long_url: str, request: Request,api_key: str = Header(default=None), idempotency_key: str = Header(default=None), db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.api_key == api_key).first()
+    if not user:
+        raise HTTPException(status_code=401, detail="Invalid or missing API key")
+
     existing_response = check_idempotency(idempotency_key)
     if existing_response:
         return existing_response
