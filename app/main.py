@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Depends, HTTPException, Request
+from fastapi import FastAPI, Depends, HTTPException, Request, Header
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 from app.database import SessionLocal, redis_client
@@ -6,6 +6,7 @@ from app.models import URL
 import random
 import string
 import redis
+import json
 
 
 app = FastAPI()
@@ -38,6 +39,20 @@ def is_rate_limited(identifier: str, max_tokens: int = 5, refill_seconds: int = 
     redis_client.decrby(key, 1)
     return False
 
+def check_idempotency(key: str):
+    if not key:
+        return None
+    stored = redis_client.get(f"idempotency:{key}")
+    if stored:
+        return json.loads(stored)
+    return None
+
+
+def save_idempotency(key: str, response_data: dict):
+    if not key:
+        return
+    redis_client.set(f"idempotency:{key}", json.dumps(response_data, default=str), ex=300)
+
 @app.get("/health")
 def health_check():
     return {"status": "ok"}
@@ -45,7 +60,11 @@ def health_check():
 
 
 @app.post("/shorten")
-def shorten_url(long_url: str, request: Request, db: Session = Depends(get_db)):
+def shorten_url(long_url: str, request: Request, idempotency_key: str = Header(default=None), db: Session = Depends(get_db)):
+    existing_response = check_idempotency(idempotency_key)
+    if existing_response:
+        return existing_response
+
     client_ip = request.client.host
 
     if is_rate_limited(client_ip):
@@ -72,12 +91,15 @@ def shorten_url(long_url: str, request: Request, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(new_url)
 
-    return {
+    response_data = {
         "short_code": new_url.short_code,
         "long_url": new_url.long_url,
         "created_at": new_url.created_at
     }
 
+    save_idempotency(idempotency_key, response_data)
+
+    return response_data
 @app.get("/{code}")
 def redirect_to_url(code: str, db: Session = Depends(get_db)):
     try:
