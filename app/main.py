@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Depends, HTTPException
+from fastapi import FastAPI, Depends, HTTPException, Request
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 from app.database import SessionLocal, redis_client
@@ -23,14 +23,34 @@ def generate_short_code(length=6):
     characters = string.ascii_letters + string.digits
     return "".join(random.choices(characters, k=length))
 
+def is_rate_limited(identifier: str, max_tokens: int = 5, refill_seconds: int = 10):
+    key = f"ratelimit:{identifier}"
+    current = redis_client.get(key)
+
+    if current is None:
+        redis_client.set(key, max_tokens - 1, ex=refill_seconds)
+        return False
+
+    remaining = int(current)
+    if remaining <= 0:
+        return True
+
+    redis_client.decrby(key, 1)
+    return False
 
 @app.get("/health")
 def health_check():
     return {"status": "ok"}
 
 
+
 @app.post("/shorten")
-def shorten_url(long_url: str, db: Session = Depends(get_db)):
+def shorten_url(long_url: str, request: Request, db: Session = Depends(get_db)):
+    client_ip = request.client.host
+
+    if is_rate_limited(client_ip):
+        raise HTTPException(status_code=429, detail="Too many requests, please try again shortly")
+
     max_attempts = 5
     short_code = None
 
@@ -57,7 +77,6 @@ def shorten_url(long_url: str, db: Session = Depends(get_db)):
         "long_url": new_url.long_url,
         "created_at": new_url.created_at
     }
-
 
 @app.get("/{code}")
 def redirect_to_url(code: str, db: Session = Depends(get_db)):
