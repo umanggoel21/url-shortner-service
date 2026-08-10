@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>URL Shortener</title>
+    <meta name="description" content="Shorten long URLs into clean, shareable links.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+        /* ── Reset ── */
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        /* ── Base ── */
+        html {
+            font-size: 16px;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            color: #1a1a1a;
+            background-color: #fafafa;
+            line-height: 1.6;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        /* ── Layout ── */
+        main {
+            width: 100%;
+            max-width: 540px;
+            padding: 0 24px;
+            margin-top: clamp(80px, 18vh, 160px);
+        }
+
+        /* ── Header ── */
+        .header {
+            margin-bottom: 40px;
+        }
+
+        .header h1 {
+            font-size: 1.5rem;
+            font-weight: 600;
+            letter-spacing: -0.02em;
+            color: #111;
+        }
+
+        .header p {
+            margin-top: 6px;
+            font-size: 0.9rem;
+            color: #666;
+        }
+
+        /* ── Input Group ── */
+        .input-group {
+            display: flex;
+            gap: 8px;
+        }
+
+        .input-group input {
+            flex: 1;
+            height: 46px;
+            padding: 0 14px;
+            font-family: inherit;
+            font-size: 0.9rem;
+            color: #1a1a1a;
+            background: #fff;
+            border: 1.5px solid #d4d4d4;
+            border-radius: 8px;
+            outline: none;
+            transition: border-color 0.15s ease;
+        }
+
+        .input-group input::placeholder {
+            color: #999;
+        }
+
+        .input-group input:focus {
+            border-color: #555;
+        }
+
+        .input-group button {
+            height: 46px;
+            padding: 0 20px;
+            font-family: inherit;
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: #fff;
+            background-color: #1a1a1a;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: background-color 0.15s ease;
+        }
+
+        .input-group button:hover {
+            background-color: #333;
+        }
+
+        .input-group button:active {
+            background-color: #000;
+        }
+
+        .input-group button:disabled {
+            background-color: #999;
+            cursor: not-allowed;
+        }
+
+        /* ── Result ── */
+        .result {
+            margin-top: 24px;
+            min-height: 24px;
+        }
+
+        .result-empty {
+            /* placeholder — keep vertical rhythm */
+        }
+
+        .result-message {
+            font-size: 0.875rem;
+            color: #666;
+        }
+
+        .result-error {
+            font-size: 0.875rem;
+            color: #b91c1c;
+        }
+
+        .result-card {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 14px 16px;
+            background: #fff;
+            border: 1.5px solid #e5e5e5;
+            border-radius: 8px;
+        }
+
+        .result-card a {
+            font-size: 0.9rem;
+            font-weight: 500;
+            color: #1a6ed8;
+            text-decoration: none;
+            word-break: break-all;
+        }
+
+        .result-card a:hover {
+            text-decoration: underline;
+        }
+
+        .copy-btn {
+            flex-shrink: 0;
+            height: 34px;
+            padding: 0 14px;
+            font-family: inherit;
+            font-size: 0.8rem;
+            font-weight: 500;
+            color: #1a1a1a;
+            background: #f5f5f5;
+            border: 1.5px solid #d4d4d4;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background-color 0.15s ease, border-color 0.15s ease;
+        }
+
+        .copy-btn:hover {
+            background: #eee;
+            border-color: #bbb;
+        }
+
+        .copy-btn.copied {
+            color: #16a34a;
+            border-color: #86efac;
+            background: #f0fdf4;
+        }
+
+        /* ── Footer ── */
+        footer {
+            margin-top: auto;
+            padding: 40px 24px 28px;
+            font-size: 0.8rem;
+            color: #999;
+        }
+
+        footer a {
+            color: #666;
+            text-decoration: none;
+            transition: color 0.15s ease;
+        }
+
+        footer a:hover {
+            color: #333;
+        }
+
+        footer span {
+            margin: 0 8px;
+            color: #d4d4d4;
+        }
+
+        /* ── Responsive ── */
+        @media (max-width: 480px) {
+            main {
+                padding: 0 16px;
+                margin-top: 60px;
+            }
+
+            .input-group {
+                flex-direction: column;
+            }
+
+            .input-group button {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <main>
+        <div class="header">
+            <h1>URL Shortener</h1>
+            <p>Paste a long URL and get a short, shareable link.</p>
+        </div>
+
+        <div class="input-group">
+            <input
+                type="url"
+                id="longUrl"
+                placeholder="https://example.com/your-long-url"
+                autocomplete="off"
+                spellcheck="false"
+            >
+            <button id="shortenBtn" onclick="shortenUrl()">Shorten URL</button>
+        </div>
+
+        <div class="result" id="result"></div>
+    </main>
+
+    <footer>
+        <a href="https://github.com/umanggoel21/url-shortner-service" target="_blank" rel="noopener">GitHub</a>
+        <span>·</span>
+        <a href="/docs" target="_blank" rel="noopener">API Docs</a>
+    </footer>
+
+    <script>
+        const DEMO_API_KEY = "CWe3_2ilKs-mA8ewLKTOfG7wID8kBe3g";
+        const urlInput = document.getElementById("longUrl");
+        const resultDiv = document.getElementById("result");
+        const shortenBtn = document.getElementById("shortenBtn");
+
+        // Allow Enter key to submit
+        urlInput.addEventListener("keydown", (e) => {
+            if (e.key === "Enter") shortenUrl();
+        });
+
+        async function shortenUrl() {
+            const longUrl = urlInput.value.trim();
+
+            if (!longUrl) {
+                showError("Please enter a URL.");
+                return;
+            }
+
+            showMessage("Shortening…");
+            shortenBtn.disabled = true;
+
+            try {
+                const response = await fetch("/shorten?long_url=" + encodeURIComponent(longUrl), {
+                    method: "POST",
+                    headers: {
+                        "api-key": DEMO_API_KEY
+                    }
+                });
+
+                if (response.status === 429) {
+                    showError("Rate limited — please try again in a moment.");
+                    return;
+                }
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    const shortUrl = window.location.origin + "/" + data.short_code;
+                    showResult(shortUrl);
+                } else {
+                    showError(data.detail || "Something went wrong.");
+                }
+            } catch {
+                showError("Could not connect. Please try again.");
+            } finally {
+                shortenBtn.disabled = false;
+            }
+        }
+
+        function showResult(url) {
+            resultDiv.innerHTML = "";
+            resultDiv.className = "result";
+
+            const card = document.createElement("div");
+            card.className = "result-card";
+
+            const link = document.createElement("a");
+            link.href = url;
+            link.target = "_blank";
+            link.rel = "noopener";
+            link.textContent = url;
+
+            const copyBtn = document.createElement("button");
+            copyBtn.className = "copy-btn";
+            copyBtn.textContent = "Copy";
+            copyBtn.onclick = () => {
+                navigator.clipboard.writeText(url).then(() => {
+                    copyBtn.textContent = "Copied";
+                    copyBtn.classList.add("copied");
+                    setTimeout(() => {
+                        copyBtn.textContent = "Copy";
+                        copyBtn.classList.remove("copied");
+                    }, 2000);
+                });
+            };
+
+            card.appendChild(link);
+            card.appendChild(copyBtn);
+            resultDiv.appendChild(card);
+        }
+
+        function showMessage(text) {
+            resultDiv.className = "result";
+            resultDiv.innerHTML = `<p class="result-message">${text}</p>`;
+        }
+
+        function showError(text) {
+            resultDiv.className = "result";
+            resultDiv.innerHTML = `<p class="result-error">${text}</p>`;
+        }
+    </script>
+</body>
+
+</html>

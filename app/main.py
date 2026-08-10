@@ -1,6 +1,8 @@
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 import secrets
 from fastapi import FastAPI, Depends, HTTPException, Request, Header
-from fastapi.responses import RedirectResponse
+from fastapi.responses import RedirectResponse, FileResponse
 from sqlalchemy.orm import Session
 from app.database import SessionLocal, redis_client
 from app.models import URL, User 
@@ -11,6 +13,9 @@ import json
 
 
 app = FastAPI()
+@app.get("/")
+def serve_homepage():
+    return FileResponse("static/index.html")
 
 
 def get_db():
