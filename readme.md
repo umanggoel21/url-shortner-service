@@ -114,22 +114,79 @@ Returns `{"status": "ok"}`.
 
 ---
 
-## How it works
+## Architecture
 
-1. **Registration** — A user signs up with an email and receives an API key.
-2. **Shortening** — An authenticated request sends a long URL. The server generates
-   a random 6-character code, checks for collisions (up to 5 retries), and stores
-   the mapping in Postgres.
-3. **Redirecting** — When someone visits `/{code}`, the server checks Redis first.
-   On a cache miss, it falls back to Postgres and writes the result back to Redis
-   for next time.
-4. **Rate limiting** — A token-bucket algorithm in Redis allows 5 requests per 10
-   seconds per IP. Requests beyond that get a `429`.
-5. **Idempotency** — If a client sends the same `idempotency-key` header within 5
-   minutes, the server returns the original response instead of creating a duplicate
-   entry.
+**Stack:** FastAPI · PostgreSQL · Redis · Docker
+
+### Request flow
+
+**Creating a short link (`POST /shorten`)**
+
+1. Validate the API key against the `users` table
+2. Check for a matching `Idempotency-Key` — if this exact request was already
+   processed, return the stored result instead of creating a duplicate
+3. Check the caller's rate limit (token bucket, per IP, stored in Redis)
+4. Generate a random 6-character short code; check it against the database for
+   collisions, retrying up to 5 times if needed
+5. Save the new URL record to PostgreSQL
+6. Store the result under the idempotency key for future retries
+7. Return the short link
+
+**Visiting a short link (`GET /{code}`)**
+
+1. Check Redis for a cached long URL — if found, redirect immediately
+2. On a cache miss, query PostgreSQL, then write the result into Redis for future
+   requests, then redirect
+3. If Redis is unreachable at any point, skip caching entirely and serve directly
+   from PostgreSQL — the redirect still succeeds, just without the speed benefit
+4. If the code doesn't exist, return a 404
 
 ---
+
+## Key design decisions
+
+**Why cache-aside instead of write-through caching?**
+
+URL shorteners are heavily read-skewed — most links are created once but clicked
+many times. Cache-aside means the cache is only populated on demand (when a link
+is actually visited), avoiding the cost of caching links that may never be read
+again. Write-through would cache every link immediately on creation, which wastes
+cache space and write time on links nobody visits.
+
+**Why random short codes with collision retry, instead of a sequential counter?**
+
+A sequential counter (1, 2, 3…) never collides, but it's predictable — anyone
+could estimate how many links exist or guess valid codes by incrementing a number.
+Random generation avoids this, at the cost of needing collision handling, which is
+implemented as a bounded retry loop (max 5 attempts) backed by a database-level
+unique constraint on `short_code` as the real guarantee against duplicates.
+
+**Why token bucket for rate limiting, instead of a fixed window counter?**
+
+A fixed window (e.g., "max 5 requests per 10-second window") allows a burst of up
+to 2× the limit right at the window boundary, since a client can send the limit at
+the very end of one window and the limit again at the very start of the next. Token
+bucket approaches avoid this edge case. This implementation uses a simplified,
+Redis-backed fixed-window approximation rather than a continuous refill — a true
+token bucket would refill gradually rather than resetting all at once.
+
+**Why idempotency keys on link creation?**
+
+If a client's request succeeds but the response is lost (network blip, timeout),
+a naive retry would create a second, duplicate short link for the same URL. Clients
+can send an `Idempotency-Key` header, and the server returns the original result for
+any repeat of that key within a 5-minute window, instead of creating a new link. This
+is the same pattern used by payment APIs like Stripe, where duplicate side effects
+from retries are unacceptable.
+
+**Why does the app stay up if Redis goes down?**
+
+Redis is a performance optimization, not a source of truth — PostgreSQL is. All
+Redis calls are wrapped in error handling that falls back to querying PostgreSQL
+directly if Redis is unreachable, so the service degrades gracefully (slower, but
+still correct) instead of failing outright.
+
+
 
 ## Project structure
 
