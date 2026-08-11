@@ -11,7 +11,9 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
     <style>
         /* ── Reset ── */
-        *, *::before, *::after {
+        *,
+        *::before,
+        *::after {
             box-sizing: border-box;
             margin: 0;
             padding: 0;
@@ -123,10 +125,6 @@
             min-height: 24px;
         }
 
-        .result-empty {
-            /* placeholder — keep vertical rhythm */
-        }
-
         .result-message {
             font-size: 0.875rem;
             color: #666;
@@ -235,13 +233,8 @@
         </div>
 
         <div class="input-group">
-            <input
-                type="url"
-                id="longUrl"
-                placeholder="https://example.com/your-long-url"
-                autocomplete="off"
-                spellcheck="false"
-            >
+            <input type="url" id="longUrl" placeholder="https://example.com/your-long-url" autocomplete="off"
+                spellcheck="false">
             <button id="shortenBtn" onclick="shortenUrl()">Shorten URL</button>
         </div>
 
