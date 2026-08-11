@@ -230,6 +230,9 @@ still correct) instead of failing outright.
 
 ---
 
+In production (deployed on [Render](https://render.com)), these point to a managed
+Postgres instance ([Neon](https://neon.tech)) and managed Redis instance
+([Upstash](https://upstash.com)) instead.
 ## Configuration
 
 Database and Redis connections are configured in `app/database.py`. Currently
