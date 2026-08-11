@@ -45,6 +45,10 @@ def test_rate_limit_blocks_after_threshold():
 
 def test_idempotency_returns_same_result():
     headers = {
-        "api-key": "CWe3_2ilKs-mA8ewLKTOfG7wID8kBe3g",
+        "api-key": "3D0V0fdd09N_3miBb3Mrl6429OG5p_OJ",
         "idempotency-key": "test-fixed-key-999"
     }
+    first = client.post("/shorten", params={"long_url": "https://example.com"}, headers=headers)
+    second = client.post("/shorten", params={"long_url": "https://example.com"}, headers=headers)
+
+    assert first.json()["short_code"] == second.json()["short_code"]
